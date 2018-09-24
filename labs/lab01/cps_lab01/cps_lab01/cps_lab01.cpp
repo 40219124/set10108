@@ -16,7 +16,7 @@ using namespace std::this_thread;
 
 enum SUBSECTION
 {
-	HELLO, SLEEP, PARAMS, LAMBDA, LAMBTHREAD, DATA
+	HELLO, SLEEP, PARAMS, LAMBDA, LAMBTHREAD, DATA, MONTE
 };
 
 /* HELLO */
@@ -63,9 +63,27 @@ void work() {
 }
 
 
+/* MONTE */
+void monte_carlo_pi(size_t iterations) {
+	random_device r;
+	default_random_engine e(r());
+	uniform_real_distribution<double> distribution(0.0, 1.0);
+
+	unsigned int in_circle = 0;
+	for (size_t i = 0; i < iterations; ++i) {
+		auto x = distribution(e);
+		auto y = distribution(e);
+		auto length = sqrt((x*x) + (y*y));
+		if (length <= 1.0) {
+			++in_circle;
+		}
+	}
+	auto pi = (4.0 * in_circle) / static_cast<double>(iterations);
+}
+
 int main()
 {
-	SUBSECTION sub = DATA;
+	SUBSECTION sub = MONTE;
 	if (sub == HELLO) {
 		thread t(hello_world);
 		t.join();
@@ -138,6 +156,29 @@ int main()
 			auto end = system_clock::now();
 			auto total = end - start;
 			data << total.count() << endl;
+		}
+		data.close();
+	}
+	else if (sub == MONTE) {
+		ofstream data("montecarlo.csv", ofstream::out);
+		for (size_t num_threads = 0; num_threads <= 6; ++num_threads) {
+			auto total_threads = static_cast<unsigned int>(pow(2.0, num_threads));
+			cout << "Number of threads = " << total_threads << endl;
+			data << "num_threads_" << total_threads;
+			for (size_t iters = 0; iters < 100; ++iters) {
+				auto start = system_clock::now();
+				vector<thread> threads;
+				for (size_t n = 0; n < total_threads; ++n) {
+					threads.push_back(thread(monte_carlo_pi, static_cast<unsigned int>(pow(2.0, 24.0 - num_threads))));
+				}
+				for (auto &t : threads) {
+					t.join();
+				}
+				auto end = system_clock::now();
+				auto total = end - start;
+				data << ", " << duration_cast<milliseconds>(total).count();
+			}
+			data << endl;
 		}
 		data.close();
 	}
